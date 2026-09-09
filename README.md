@@ -27,12 +27,19 @@ touches the bytes until a decoder has them.
 | | |
 |---|---|
 | [`hardware/`](hardware/) | Two board designs. One optical jack, two capacitors, and either one wire or three |
-| [`pico/`](pico/) | Firmware for the Raspberry Pi Pico board: locks to the signal, tells you the sample rate, names the encoding, and plays the audio on your computer |
+| [`pico/`](pico/) | Firmware for the Raspberry Pi Pico board: locks to the signal, reports the sample rate, names the encoding, and streams the payload to a host |
+| [`pico/listen.py`](pico/listen.py) | Listen to the optical input on your computer, or record it to a WAV. The quickest way to confirm the whole chain works |
 | [`decoder/`](decoder/) | `spdif-deframe` — turns a Dolby Digital bitstream into multichannel PCM, ~19 ms faster than ffmpeg's equivalent |
 
 ```sh
 git clone https://github.com/sulkaharo/toslink-box && cd toslink-box
 ./build.sh                    # builds whatever your machine has toolchains for
+
+./pico/listen.py              # hear the optical input, live
+./pico/listen.py --out cap.wav --seconds 10        # or record it
+
+# and for a compressed 5.1 bitstream, decode it to multichannel PCM
+arecord -D hw:2,0 -f S16_LE -c2 -r48000 | ./decoder/spdif-deframe --channels 6 > pcm.raw
 ```
 
 ## Which board
@@ -49,16 +56,35 @@ programmable I/O), it needs a recent kernel, and it spends real CPU on the Pi.
 
 Full comparison in [`hardware/`](hardware/).
 
-## What works, and what does not
+## What this is, and what it is not
 
-**Works:** both boards; the firmware locks, reports the measured sample rate, counts Dolby bursts,
-names the encoding, and streams the audio to your computer so you can listen to it; the decoder
-turns Dolby Digital into 5.1 PCM and is tested against real AC-3.
+**It is a bitstream transport.** The board recovers the S/PDIF stream off the optical link and hands
+the payload to software untouched. That payload is either stereo PCM or a compressed surround
+bitstream — and *only software can tell which*, by looking for the burst headers inside it.
 
-**Does not work yet:** the Pico is **not a USB sound card**. It reports and streams over a USB
-serial port, which is enough to bring the board up, characterise a source and listen — but your
-operating system does not yet see it as an audio input device. That is the next piece of work. In
-the meantime the decoder takes its input from a file, a pipe, or a capture device you already have.
+So the board never interprets what it carries, and **it is not a sound card and will not become
+one.** That is the design, not a shortfall. An interface presenting itself as an ordinary audio
+input invites the operating system to resample it, apply volume to it or convert its format, and
+doing any of that to a bitstream turns it into noise while every component reports success. The
+whole point is to get bytes to a decoder with nothing in between.
+
+The same reason is why the decoder is a separate program you point at the stream, rather than
+something the board does: decoding is a software concern with codec libraries and licensing behind
+it, and it does not belong in a receiver.
+
+**Working today:** both boards. The firmware locks to the signal, reports the measured sample rate,
+counts surround bursts, names the encoding, watches the side channels, and streams the payload to
+your computer so you can listen. The decoder turns a compressed 5.1 bitstream into multichannel PCM
+and is tested against real AC-3.
+
+**Missing:** a USB endpoint that presents the payload to an ordinary capture API, so that programs
+expecting a capture device can read it without going through `listen.py`. That is a convenience for
+*transport* — it would still be a payload rather than "audio in", and `hw:` rather than `plughw:`
+would still be mandatory, for the same reason as above. Board B already has it: the payload arrives
+on a pipe.
+
+None of that is in the way of using this. `listen.py` plays the input or records it to a WAV, and
+the decoder takes a file or a pipe, so both boards are usable as they stand.
 
 ## Licensing
 

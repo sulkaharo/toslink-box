@@ -13,7 +13,7 @@ WHAT THIS IS AND IS NOT. It is the ears test -- every counter in the firmware ca
 the audio is wrong, so nothing counts as working until it has been heard. It is NOT a timing
 measurement of any kind: a serial byte pipe has no clocking contract, the source's crystal and
 the player's assumed rate drift apart, and nothing corrects it. Expect the buffer to creep over a long
-listen. A real USB audio endpoint is the one with a clocking story.
+listen. A proper USB transport endpoint is the one with a clocking story.
 """
 import argparse, glob, subprocess, sys, termios, time
 

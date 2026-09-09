@@ -14,12 +14,12 @@ receiver and the same two capacitors; they differ only in what carries the bits 
 | Pi CPU cost | negligible | **50 MS/s oversampling, ~6.25 MB/s of DMA** |
 | Host it works with | **anything with a USB port** — Linux, macOS, Windows, any Pi, a NAS | **Raspberry Pi 5 only** (needs the RP1 chip's PIO) |
 | Firmware to flash | yes | no |
-| Presents as | serial reporter today; **USB audio endpoint unwritten** | a pipe into the decoder |
+| Payload reaches software as | a USB serial stream (`pico/listen.py`) | a pipe |
 
 **A is the one to build unless you have a reason not to.** The Pico does the S/PDIF work itself and
 talks USB, so the host can be any machine with a USB port — there is nothing platform-specific about
 it, nothing wired to the host, and nothing that can conflict with whatever else is plugged in. The
-catch is that it is not yet a USB audio device: it reports and streams over a USB serial port.
+payload reaches software over a USB serial stream, which needs the glue in `pico/listen.py`.
 
 **B** works end to end today with no firmware step, but only on a Pi 5, with a free header and a
 recent kernel, and it spends real CPU there.

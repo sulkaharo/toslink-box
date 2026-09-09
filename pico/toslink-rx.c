@@ -5,15 +5,18 @@
  * and reports once a second on USB CDC. Press 's' to stream the audio as raw PCM instead, 'c' to
  * dump the IEC 60958 side channels.
  *
- * **It presents no USB audio interface yet.** That is a gap, not a design choice -- see "what does
- * not work yet" in the project README. Until it exists this firmware is a receiver, a reporter and
- * a listening test, which is enough to bring the board up and to characterise a source.
+ * **This is a transport, not a sound card.** What it carries is the S/PDIF payload, which may be
+ * stereo PCM or a compressed surround bitstream, and only software can tell which. So nothing here
+ * interprets it -- presenting it as ordinary audio input would invite the host to resample or
+ * convert it, and doing that to a bitstream turns it into noise while everything reports success.
  *
- * ## WHY A REPORTER BEFORE A USB AUDIO DEVICE
+ * ## WHY A REPORTER BEFORE A USB TRANSPORT ENDPOINT
  *
- * The goal is a bit-exact 2-channel 48 kHz USB capture device. Writing that first means bringing up
- * a PIO receiver, a ring buffer, a TinyUSB UAC2 endpoint and an isochronous clocking policy at
- * once, with nothing to say which of them is wrong when the host captures silence.
+ * The payload currently reaches software over USB CDC, with the glue in pico/listen.py. A UAC2
+ * endpoint would let an ordinary capture API read it instead -- a convenience for transport, not a
+ * transformation into an audio device. Writing that first means bringing up a PIO receiver, a ring
+ * buffer, a TinyUSB endpoint and an isochronous clocking policy at once, with nothing to say which
+ * of them is wrong when the host captures silence.
  *
  * A reporter answers the questions that shape that design, using nothing but a host, the Pico and
  * an optical cable:
@@ -249,8 +252,10 @@ static void side_report(bool force)
  * possible way to get ears on it: press 's' and the port stops emitting text and starts emitting
  * raw interleaved S16_LE stereo, which pico/listen.py pipes into a player.
  *
- * It is a TEST PATH, and the difference from a real USB audio endpoint matters. That endpoint
- * would appear as an ordinary capture device with proper isochronous timing. This is a byte pipe over a serial
+ * It is a real tool, not only a bring-up aid -- for a PCM source it is simply how you listen. What
+ * it is NOT is a timing reference: a serial byte pipe has no clocking contract, so the source's
+ * crystal and the player's assumed rate drift apart with nothing correcting it. A proper USB
+ * transport endpoint is the one that would carry the payload with real isochronous timing. This is a byte pipe over a serial
  * port with no clocking contract at all -- the source's crystal and whatever the player assumes will
  * drift apart, and nothing here corrects it. Fine for listening, useless as a measurement of
  * anything timing-related.
@@ -689,7 +694,7 @@ int main(void)
         next = make_timeout_time_ms(REPORT_MS);
 
         if (g_stage == 1) {
-            printf("\n# pico-toslink stage 1 -- lock and rate reporter, no audio interface\n");
+            printf("\n# toslink-rx -- S/PDIF receiver and reporter\n");
             printf("# with a 48 kHz source: STABLE, rate near 48000, sub ~96000/s"
                    " (2 subframes per frame).\n");
             printf("#   A compressed 5.1 bitstream also gives bursts ~31.2/s and parity 0."
