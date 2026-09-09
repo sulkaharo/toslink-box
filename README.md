@@ -29,7 +29,7 @@ touches the bytes until a decoder has them.
 | [`hardware/`](hardware/) | Two board designs. One optical jack, two capacitors, and either one wire or three |
 | [`pico/`](pico/) | Firmware for the Raspberry Pi Pico board: locks to the signal, reports the sample rate, names the encoding, and streams the payload to a host |
 | [`pico/listen.py`](pico/listen.py) | Listen to the optical input on your computer, or record it to a WAV. The quickest way to confirm the whole chain works |
-| [`decoder/`](decoder/) | `spdif-deframe` — turns a Dolby Digital bitstream into multichannel PCM, ~19 ms faster than ffmpeg's equivalent |
+| [`decoder/`](decoder/) | `spdif-deframe` — turns a compressed 5.1 bitstream into multichannel PCM, releasing each frame in 5–13 ms instead of the 32 ms ffmpeg's demuxer waits for |
 
 ```sh
 git clone https://github.com/sulkaharo/toslink-box && cd toslink-box

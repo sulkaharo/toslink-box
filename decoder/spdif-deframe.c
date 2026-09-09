@@ -3,20 +3,33 @@
  *
  * Reads the S/PDIF subframe payload on stdin as S16_LE stereo -- which is what ANY front end
  * gives you: `arecord` on a USB receiver, a PIO capture, or a file. Writes interleaved S16_LE PCM
- * on stdout. A drop-in replacement for `ffmpeg -f spdif -i -`, and about 19 ms faster.
+ * on stdout. A drop-in replacement for `ffmpeg -f spdif -i -` that releases a frame as soon as it is
+ * complete rather than at the end of its burst period.
  *
  * ## WHY IT EXISTS: ffmpeg's demuxer waits for padding it does not need
  *
- * `ffmpeg -f spdif -i -` costs ~19 ms that has nothing to do with decoding. Its demuxer finds
- * Pa/Pb, reads `Pd` bytes of payload, and then does
+ * `ffmpeg -f spdif -i -` finds Pa/Pb, reads `Pd` bytes of payload, and then does
  *
  *     avio_skip(pb, offset - pkt->size - BURST_HEADER_SIZE);
  *
  * BEFORE returning the packet -- it skips the padding out to the next burst boundary first, and on
- * a pipe that skip blocks until those bytes arrive. At 640 kbps an AC-3 burst is about 2560 bytes
- * of a 6144-byte period, so the frame reaches the decoder roughly 32 ms after its first byte
- * instead of the ~13 ms at which it was already complete. The decoder itself has no lookahead:
- * one packet in, 1536 samples out.
+ * a pipe that skip blocks until those bytes arrive.
+ *
+ * S/PDIF is a constant-rate carrier and the burst period is fixed, so this is exact arithmetic
+ * rather than a measurement. An AC-3 frame is 1536 samples -- 32.0 ms at 48 kHz -- in a period of
+ * `1536 << 2` = 6144 bytes, and the payload occupies `bitrate_kbps * 4` of them:
+ *
+ *     640 kbps   2560 B   complete at 13.3 ms   ffmpeg releases at 32.0 ms
+ *     448 kbps   1792 B   complete at  9.3 ms
+ *     384 kbps   1536 B   complete at  8.0 ms
+ *     256 kbps   1024 B   complete at  5.3 ms
+ *
+ * So a frame goes to the decoder in 5-13 ms instead of 32, and the LOWER bit rates gain most
+ * because the payload is a smaller slice of a fixed period. The decoder has no lookahead: one
+ * packet in, 1536 samples out.
+ *
+ * That figure is one stage of a chain and is not an end-to-end measurement -- what fraction of a
+ * given pipeline's latency it represents depends on the capture buffers, ALSA and the output path.
  *
  * There is no option for it -- the skip is unconditional -- and `ffmpeg -f ac3` does not help
  * either, because the raw demuxer reads fixed 1024-byte chunks and the last chunk of every frame
