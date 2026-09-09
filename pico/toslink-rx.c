@@ -247,7 +247,7 @@ static void side_report(bool force)
  * Every counter in this file can be clean while the audio is wrong, so the chain does not count as
  * working until somebody has heard it. This is the cheapest
  * possible way to get ears on it: press 's' and the port stops emitting text and starts emitting
- * raw interleaved S16_LE stereo, which pico/listen.py pipes into ffplay.
+ * raw interleaved S16_LE stereo, which pico/listen.py pipes into a player.
  *
  * It is a TEST PATH, and the difference from a real USB audio endpoint matters. That endpoint
  * would appear as an ordinary capture device with proper isochronous timing. This is a byte pipe over a serial

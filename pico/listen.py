@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Listen to the TOSLINK input through the Pico, in real time.
 
-    ./pico/listen.py                  play through ffplay
+    ./pico/listen.py                  listen to it
     ./pico/listen.py --out cap.wav    record instead of playing
     ./pico/listen.py --rate 44100     if the source is not 48 kHz (the firmware prints `nominal`)
 
 The firmware sits in text mode reporting once a second. Sending 's' switches it to raw interleaved
 S16_LE stereo; this sends that, discards the text still in flight by scanning for the magic marker,
-and shovels the rest into ffplay.
+and shovels the rest into a player.
 
 WHAT THIS IS AND IS NOT. It is the ears test -- every counter in the firmware can read clean while
 the audio is wrong, so nothing counts as working until it has been heard. It is NOT a timing
 measurement of any kind: a serial byte pipe has no clocking contract, the source's crystal and
-ffplay's assumed rate drift apart, and nothing corrects it. Expect the buffer to creep over a long
+the player's assumed rate drift apart, and nothing corrects it. Expect the buffer to creep over a long
 listen. A real USB audio endpoint is the one with a clocking story.
 """
 import argparse, glob, subprocess, sys, termios, time
@@ -79,10 +79,10 @@ def main() -> int:
         window = (window + fd.read(64))[-4096:]
     audio_tail = window.split(MAGIC, 1)[1]
 
-    # sox rather than ffmpeg/ffplay. Measured 2026-09-09 on this Mac: both ffmpeg binaries are
-    # broken by a dangling libx265.216.dylib from a partial Homebrew upgrade and exit before
-    # reading a byte, which reaches this script only as a BrokenPipeError. sox has no such
-    # dependency and does the same job. `--sink ff` forces the ffmpeg path if it is ever repaired.
+    # sox by default rather than ffmpeg. sox links no video codecs, so it is far less likely to be
+    # broken by an unrelated package upgrade -- an ffmpeg that cannot load one of its own libraries
+    # exits before reading a byte, and that reaches this script only as a BrokenPipeError, which is
+    # a confusing way to learn your player is missing. `--sink ff` selects ffmpeg/ffplay instead.
     raw = ["--buffer", str(args.buffer),
            "-t", "raw", "-r", str(args.rate), "-e", "signed", "-b", "16", "-c", "2", "-"]
     if args.sink == "ff":
