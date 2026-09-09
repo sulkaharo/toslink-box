@@ -1,0 +1,13 @@
+# build products
+build/
+*.o
+*.uf2
+*.elf
+*.bin
+*.hex
+*.dis
+decoder/spdif-deframe
+decoder/tests/make-vectors
+decoder/tests/*.raw
+__pycache__/
+*.pyc
