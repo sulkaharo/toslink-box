@@ -30,7 +30,7 @@
  *
  * ## WHICH TYPES, AND THE SAFETY RULE
  *
- * `spdif-policy.h` is generated from `policy.py`, the single owner of that decision. Anything not
+ * `spdif-policy.h` is generated from `policy.py`, the single source for that. Anything not
  * SPDIF_DECODE is DROPPED -- never emitted as audio, because a raw burst interpreted as linear PCM
  * is full-scale white noise at whatever volume the listener set for dialogue. An unrecognised type
  * is a rejection, not a fallback.

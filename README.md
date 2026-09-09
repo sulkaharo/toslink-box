@@ -65,10 +65,10 @@ the meantime the decoder takes its input from a file, a pipe, or a capture devic
 Apache-2.0. Nothing is bundled: [`pico_spdif_rx`](https://github.com/elehobica/pico_spdif_rx)
 (BSD-2-Clause) and the Pico SDK are fetched by `pico/build.sh`.
 
-**No audio codec is distributed here.** Bitstreams are carried untouched and decoding is
-libavcodec's job, so no Dolby or DTS implementation ships with this project. Which formats *you*
-decode is a declared, commented decision in [`decoder/policy.py`](decoder/policy.py) — conservative
-by default, and yours to change. It is not legal advice.
+**No audio codec is bundled.** Bitstreams are carried untouched and the decoding is libavcodec's,
+so no codec implementation ships with this project. Which payload types this build hands to a
+decoder is one configuration table in [`decoder/policy.py`](decoder/policy.py) — conservative by
+default, and yours to adjust.
 
 ## Troubleshooting
 

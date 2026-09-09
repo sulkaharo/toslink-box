@@ -251,7 +251,7 @@ static void side_report(bool force)
  *
  * It is a TEST PATH, and the difference from a real USB audio endpoint matters. That endpoint
  * would appear as an ordinary capture device with proper isochronous timing. This is a byte pipe over a serial
- * port with no clocking contract at all -- the Sony's crystal and whatever ffplay assumes will
+ * port with no clocking contract at all -- the source's crystal and whatever the player assumes will
  * drift apart, and nothing here corrects it. Fine for listening, useless as a measurement of
  * anything timing-related.
  *
@@ -690,9 +690,9 @@ int main(void)
 
         if (g_stage == 1) {
             printf("\n# pico-toslink stage 1 -- lock and rate reporter, no audio interface\n");
-            printf("# expect with the TV playing Dolby Digital: STABLE, rate near 47993.7 Hz"
-                   " (what the Pi's own front end measured),\n");
-            printf("#   sub ~96000/s, bursts ~31.2/s, parity 0."
+            printf("# with a 48 kHz source: STABLE, rate near 48000, sub ~96000/s"
+                   " (2 subframes per frame).\n");
+            printf("#   A compressed 5.1 bitstream also gives bursts ~31.2/s and parity 0."
                    " Pull the fibre and it MUST go NO_SIGNAL.\n");
             printf("# LED: 1 blink booted - 2 usb ok - 3 receiver started - 4 locked\n\n");
             g_stage = 2;

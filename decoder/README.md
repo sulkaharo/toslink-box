@@ -34,17 +34,14 @@ bytes of the next one.
 The **decode** is still libavcodec's. dialnorm, DRC and channel order are exactly what a hand-rolled
 decoder gets wrong for months. Only the framing is ours, because that is the part costing latency.
 
-## The policy is a licensing decision, and it is yours
+## Which formats it decodes
 
-`policy.py` is the single owner of which types get decoded. `spdif-policy.h` is **generated** from
-it and `make check` fails if it has drifted, so there is one table to review rather than a scatter
-of `if (dtype == 1)`.
+`policy.py` is the single source for that, and `spdif-policy.h` is **generated** from it —
+`make check` fails if the header has drifted, so there is one table to change rather than a scatter
+of `if (dtype == 1)`. `./spdif-deframe --list` prints what the current build will do.
 
-Defaults are conservative, the reasoning for each entry is written out in `policy.py`, and **they
-are a starting point for your own decision, not legal advice.** The one thing worth repeating here:
-patents and trademarks are different questions — a format whose patents have expired can still
-carry a live trademark, so decoding AC-3 and calling your product "Dolby Digital" are not the same
-question. DTS is off behind a single flag because it is the genuinely open case.
+Defaults are conservative. Adjust the table to suit your requirements; the DTS types sit behind a
+single `DECODE_DTS` flag.
 
 ## The safety rule, which is not a preference
 
