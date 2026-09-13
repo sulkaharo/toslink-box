@@ -33,8 +33,20 @@ touches the bytes until a decoder has them.
 Plus **LG Sound Sync**: some LG televisions broadcast their volume and mute state down the optical
 cable, in the channel-status bits rather than anywhere you would expect. The firmware decodes it and
 reports `lg-vol 42` on its status line, so a device downstream can follow the TV remote. Both the
-current and the 2017-era byte layouts are handled. Decoded from the wire format, and cross-checked
-against published samples — it has not yet been run against an actual LG set.
+current and the 2017-era byte layouts are handled.
+
+**Verified on an LG OLED55C8, 2026-09-13.** Two things that cost time if you do not know them:
+
+* **It is off by default**, and it is a *Sound Out mode* rather than a setting you add to optical
+  output. On a C8: `Settings → Sound → Sound Out → LG Sound Sync (Optical)`. With plain optical out,
+  channel status reads `06 0c 00 02 00 00 …` — coherent, correct, and carrying no signature at all.
+* **Enabling it dropped that TV from Dolby Digital to stereo PCM.** Measured on the same cable
+  minutes apart: `cbit-nonaudio 1, fmt AC-3, bursts 31.0/s` before, `cbit-nonaudio 0, fmt PCM,
+  bursts 0.0/s` after, with a lock/unlock as the mode changed. Check
+  `Settings → Sound → Additional Settings → Digital Sound Out` — switching Sound Out mode may reset
+  it to PCM, and setting it back to Auto or Pass Through may give you both. If it does not, volume
+  sync and surround are mutually exclusive on that set, and for anything built around surround the
+  choice makes itself.
 | [`decoder/`](decoder/) | `spdif-deframe` — turns a compressed 5.1 bitstream into multichannel PCM, releasing each frame in 5–13 ms instead of the 32 ms ffmpeg's demuxer waits for |
 
 ```sh

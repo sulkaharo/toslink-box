@@ -727,6 +727,7 @@ int main(void)
     uint32_t t0 = to_ms_since_boot(get_absolute_time());
     bool started = false;
     bool force_side = false;
+    bool side_end = false;
 
     for (;;) {
         /* Start the receiver only after the first report has gone out, so that a hang inside
@@ -835,10 +836,12 @@ int main(void)
             }
             if (rate_changes) printf("  rate-changes %lu", (unsigned long)rate_changes);
             if (lg_present) printf("  lg-vol %u%s", lg_volume, lg_muted ? "/mute" : "");
-            printf("\n");
-            side_report(force_side);
-            force_side = false;
-            continue;   /* side_report already ended the line */
+            /* NO `continue` here. An earlier version returned to the top of the loop after the
+             * side-channel dump, which skipped the per-window counter reset below -- so `sub`,
+             * `bursts`, `peak` and the rate min/max all accumulated instead of describing the
+             * window, and the line reported 1906560 subframes a second climbing by exactly 96000.
+             * The deltas were right; the reset never ran. `side_end` defers the newline instead. */
+            side_end = true;
         } else {
             probe_pin();
             uint32_t pct = probe_samples_taken
@@ -904,6 +907,7 @@ int main(void)
         if (locks != last_locks || unlocks != last_unlocks)
             printf("   *transition*");
         printf("\n");
+        if (side_end) { side_report(force_side); force_side = false; side_end = false; }
 
         /* Reset the per-window extremes, keep the cumulative totals. */
         last_subframes = subframes; last_bursts = bursts;
