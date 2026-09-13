@@ -227,10 +227,94 @@ static void side_accumulate(uint32_t word)
     }
 }
 
+/* ---- LG Sound Sync: volume and mute, carried in the channel-status block ----
+ *
+ * Some LG televisions broadcast their volume and mute state down the optical cable so a connected
+ * device can follow the TV's remote. It rides in the IEC 60958 CHANNEL STATUS bits -- not the user
+ * data bits, which is where a general-purpose side channel would more naturally live.
+ *
+ * The wire format is a fact about the TV, and this decoder is written from the format rather than
+ * from anyone's implementation. It was cross-checked against five published samples before a line
+ * of it was written; the table below is those samples, and they all reproduce.
+ *
+ * ## LAYOUT
+ *
+ * Channel status is 192 bits, one per subframe, presented here as 24 bytes LSB-first per
+ * IEC 60958-3. Two fields:
+ *
+ *   SIGNATURE, five nibbles reading 0xF048A, and its presence IS the detection:
+ *       (cs[16] & 0x0F) == 0x0F,  cs[17] == 0x04,  cs[18] == 0x8A
+ *
+ *   PAYLOAD, one byte spanning two:
+ *       vol_byte = ((cs[15] & 0x0F) << 4) | ((cs[16] & 0xF0) >> 4)
+ *       volume   = vol_byte & 0x7F        0..100
+ *       muted    = vol_byte & 0x80        volume is PRESERVED while muted, so unmuting restores it
+ *
+ * 2017-era sets use the same nibble layout with the byte indices mirrored about the block centre:
+ * 16<->7, 17<->6, 18<->5, 15<->8. Both are checked.
+ *
+ * ## SAMPLES THIS DECODER REPRODUCES
+ *
+ *     cs[15] cs[16]   vol_byte   volume  mute
+ *      0x10   0x0F      0x00        0      0
+ *      0x13   0x2F      0x32       50      0
+ *      0x05   0x0F      0x50       80      0
+ *      0x0D   0x0F      0xD0       80      1
+ *      0x16   0x4F      0x64      100      0
+ *
+ * ## WHAT IT IS NOT
+ *
+ * There is **no checksum and no back-channel** -- the TV cannot tell whether anything received it,
+ * and there is no pairing handshake. Presence is purely "did the signature appear". So robustness
+ * has to come from hysteresis rather than from validation: three consecutive sightings to declare
+ * it present, ten consecutive misses to declare it gone, which absorbs a single flipped bit.
+ *
+ * A full channel-status block takes 192 frames to assemble -- 4 ms at 48 kHz -- and there is no
+ * update event, so this simply reads the current state on the report tick.
+ */
+#define LG_PRESENT_THRESHOLD  3
+#define LG_ABSENT_THRESHOLD  10
+
+static uint8_t  lg_present, lg_volume = 0xFF, lg_muted;
+static uint8_t  lg_hits, lg_misses;
+static bool     lg_mirrored;
+
+/* Returns true and fills vol/mute if the signature is present in either layout. */
+static bool lg_decode(const uint8_t *cs, uint8_t *vol, uint8_t *mute, bool *mirrored)
+{
+    bool a = ((cs[16] & 0x0Fu) == 0x0Fu) && cs[17] == 0x04u && cs[18] == 0x8Au;
+    bool b = ((cs[7]  & 0x0Fu) == 0x0Fu) && cs[6]  == 0x04u && cs[5]  == 0x8Au;
+    if (!a && !b) return false;
+    uint8_t hi = a ? cs[15] : cs[8];
+    uint8_t lo = a ? cs[16] : cs[7];
+    uint8_t vb = (uint8_t)(((hi & 0x0Fu) << 4) | ((lo & 0xF0u) >> 4));
+    *vol = (uint8_t)(vb & 0x7Fu);
+    *mute = (uint8_t)((vb & 0x80u) ? 1u : 0u);
+    *mirrored = !a;
+    return true;
+}
+
+static void lg_update(const uint8_t *cs)
+{
+    uint8_t vol, mute; bool mirrored;
+    if (lg_decode(cs, &vol, &mute, &mirrored)) {
+        lg_misses = 0;
+        if (lg_hits < LG_PRESENT_THRESHOLD) lg_hits++;
+        if (lg_hits >= LG_PRESENT_THRESHOLD) {
+            lg_present = 1; lg_volume = vol; lg_muted = mute; lg_mirrored = mirrored;
+        }
+    } else {
+        lg_hits = 0;
+        if (lg_misses < LG_ABSENT_THRESHOLD) lg_misses++;
+        if (lg_misses >= LG_ABSENT_THRESHOLD) lg_present = 0;
+    }
+}
+
 static void side_report(bool force)
 {
     uint8_t c[SIDE_BYTES];
     spdif_rx_get_c_bits(c, SIDE_BYTES, 0);
+    lg_update(c);
     bool c_changed = memcmp(c, cbits_last, SIDE_BYTES) != 0;
     if (!force && !side_changed && !c_changed) return;
     memcpy(cbits_last, c, SIDE_BYTES);
@@ -242,6 +326,9 @@ static void side_report(bool force)
     for (int i = 0; i < SIDE_BYTES; i++) printf(" %02x", ub_last[i]);
     printf("\n           C  :");
     for (int i = 0; i < SIDE_BYTES; i++) printf(" %02x", c[i]);
+    if (lg_present)
+        printf("\n           LG Sound Sync: volume %u%s%s",
+               lg_volume, lg_muted ? " MUTED" : "", lg_mirrored ? "  (mirrored layout)" : "");
     printf("\n");
 }
 
@@ -747,6 +834,7 @@ int main(void)
                     if (seen_types_mask & (1u << t)) printf(" %s", iec61937_type_name(t));
             }
             if (rate_changes) printf("  rate-changes %lu", (unsigned long)rate_changes);
+            if (lg_present) printf("  lg-vol %u%s", lg_volume, lg_muted ? "/mute" : "");
             printf("\n");
             side_report(force_side);
             force_side = false;

@@ -29,6 +29,12 @@ touches the bytes until a decoder has them.
 | [`hardware/`](hardware/) | Two board designs. One optical jack, two capacitors, and either one wire or three |
 | [`pico/`](pico/) | Firmware for the Raspberry Pi Pico board: locks to the signal, reports the sample rate, names the encoding, and streams the payload to a host |
 | [`pico/listen.py`](pico/listen.py) | Listen to the optical input on your computer, or record it to a WAV. The quickest way to confirm the whole chain works |
+
+Plus **LG Sound Sync**: some LG televisions broadcast their volume and mute state down the optical
+cable, in the channel-status bits rather than anywhere you would expect. The firmware decodes it and
+reports `lg-vol 42` on its status line, so a device downstream can follow the TV remote. Both the
+current and the 2017-era byte layouts are handled. Decoded from the wire format, and cross-checked
+against published samples — it has not yet been run against an actual LG set.
 | [`decoder/`](decoder/) | `spdif-deframe` — turns a compressed 5.1 bitstream into multichannel PCM, releasing each frame in 5–13 ms instead of the 32 ms ffmpeg's demuxer waits for |
 
 ```sh
